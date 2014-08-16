@@ -1,0 +1,7 @@
+{
+  "project.name"        : "libphutil-scrypt",
+  "repository.callsign" : "PHUSC",
+  "phabricator.uri"     : "https://phabricator.haskell.org",
+
+  "load": [ "phabricator/src" ]
+}
