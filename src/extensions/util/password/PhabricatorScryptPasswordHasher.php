@@ -24,31 +24,19 @@ final class PhabricatorScryptPasswordHasher
   }
 
   public function canHashPasswords() {
-    return $this->hasFastScrypt();
+    return function_exists('scrypt');
   }
 
   public function getInstallInstructions() {
-    return pht(
-      'Install the `scrypt` extension via PECL, or enable '.
-      'the `auth.allow-weak-scrypt` configuration variable.');
+    return pht('Install the `scrypt` extension via PECL.');
   }
 
   public function getStrength() {
-    if ($this->hasFastScrypt()) {
-      return 4.0;
-    }
-    else {
-      return 0.8;
-    }
+    return 4.0;
   }
 
   public function getHumanReadableStrength() {
-    if ($this->hasFastScrypt()) {
-      return pht('Great');
-    }
-    else {
-      return pht('Bad');
-    }
+    return pht('Great');
   }
 
   protected function getPasswordHash(PhutilOpaqueEnvelope $envelope) {
@@ -83,28 +71,8 @@ final class PhabricatorScryptPasswordHasher
 /* -(  Internals  )---------------------------------------------------------- */
 
   private function getScryptParams() {
-    if ($this->hasFastScrypt()) {
-      // Recommended interactive scrypt parameters.
-      return array(14, 8, 1);
-    }
-    else {
-      // TODO FIXME: TERRIBLE parameters; these are equivalent to litecoin's
-      // scrypt, which uses 512kb of RAM. The default parameters are scrypt(14,
-      // 8, 1) = 16MB of RAM, but the pure PHP implementation is far too slow
-      // for this.
-      return array(10, 4, 1);
-    }
-  }
-
-  private function runScrypt($pass, $salt, $n, $r, $p, $length) {
-    $libroot = dirname(phutil_get_library_root('libphutil-scrypt'));
-    require_once $libroot.'/externals/zend-scrypt/Hmac.php';
-    require_once $libroot.'/externals/zend-scrypt/Key/Derivation/Pbkdf2.php';
-    require_once $libroot.'/externals/zend-scrypt/Key/Derivation/Scrypt.php';
-
-    return bin2hex(
-      Zend\Crypt\Key\Derivation\Scrypt::calc(
-        $pass, $salt, intval($n), intval($r), intval($p), $length));
+    // Recommended interactive scrypt parameters.
+    return array(14, 8, 1);
   }
 
   private function verifyPass($pass, $hash) {
@@ -114,33 +82,39 @@ final class PhabricatorScryptPasswordHasher
     return $pass_hash === $hash; /* TODO FIXME */
   }
 
+  /**
+   * Create a fully 'serialized' hash with included parameters.
+   */
   private function createHash($raw_input, $salt, $logN, $r, $p) {
-    $hash = $this->runScrypt($raw_input, $salt, pow(2, $logN), $r, $p, 40);
-    return $this->combineHash($logN, $r, $p, $salt, $hash);
+    $hash = scrypt(
+      $raw_input, $salt,
+      pow(2, intval($logN)), intval($r), intval($p),
+      40);
+
+    // Format numbers to three decimal places for accurate hash lengths,
+    // since the 40 byte output and 16 byte salt are statically known.
+    $logN = sprintf('%03d', $logN);
+    $r    = sprintf('%03d', $r);
+    $p    = sprintf('%03d', $p);
+    return implode('|', array($logN, $r, $p, $salt, $hash));
   }
 
+  /**
+   * Get the parameters used for a hashed password.
+   */
   private function getParams($hash) {
     list($logN, $r, $p, $salt, $raw_hash) = $this->separateHash($hash);
     return array($logN, $r, $p);
   }
 
-  private function combineHash($logN, $r, $p, $salt, $raw_hash) {
-    // Format numbers to three decimal places for accurate hash lengths,
-    // since the 48 byte output and 16 byte salt are statically known.
-    $logN = sprintf("%03d", $logN);
-    $r    = sprintf("%03d", $r);
-    $p    = sprintf("%03d", $p);
-    return implode('|', array($logN, $r, $p, $salt, $raw_hash));
-  }
-
+  /**
+   * Split a hashed password into its internal components.
+   */
   private function separateHash($hash) {
     list($logN, $r, $p, $salt, $raw_hash) = explode('|', $hash);
     return array(intval($logN), intval($r), intval($p), $salt, $raw_hash);
   }
 
-  private function hasFastScrypt() {
-    return extension_loaded('Scrypt') === true;
-  }
 }
 
 // Local Variables:
