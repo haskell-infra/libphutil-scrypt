@@ -24,7 +24,7 @@ final class PhabricatorScryptPasswordHasher
   }
 
   public function canHashPasswords() {
-    return function_exists('scrypt');
+    return extension_loaded('scrypt') && function_exists('scrypt');
   }
 
   public function getInstallInstructions() {
@@ -40,11 +40,11 @@ final class PhabricatorScryptPasswordHasher
   }
 
   protected function getPasswordHash(PhutilOpaqueEnvelope $envelope) {
-    list($logN, $r, $p) = $this->getScryptParams();
+    list($log_n, $r, $p) = $this->getScryptParams();
     $salt = Filesystem::readRandomCharacters(16);
 
     return new PhutilOpaqueEnvelope(
-      $this->createHash($envelope->openEnvelope(), $salt, $logN, $r, $p));
+      $this->createHash($envelope->openEnvelope(), $salt, $log_n, $r, $p));
   }
 
   protected function verifyPassword(
@@ -76,43 +76,43 @@ final class PhabricatorScryptPasswordHasher
   }
 
   private function verifyPass($pass, $hash) {
-    list($logN, $r, $p, $salt, $raw_hash) = $this->separateHash($hash);
+    list($log_n, $r, $p, $salt, $raw_hash) = $this->separateHash($hash);
 
-    $pass_hash = $this->createHash($pass, $salt, $logN, $r, $p);
+    $pass_hash = $this->createHash($pass, $salt, $log_n, $r, $p);
     return $pass_hash === $hash; /* TODO FIXME */
   }
 
   /**
    * Create a fully 'serialized' hash with included parameters.
    */
-  private function createHash($raw_input, $salt, $logN, $r, $p) {
+  private function createHash($raw_input, $salt, $log_n, $r, $p) {
     $hash = scrypt(
       $raw_input, $salt,
-      pow(2, intval($logN)), intval($r), intval($p),
+      pow(2, intval($log_n)), intval($r), intval($p),
       40);
 
     // Format numbers to three decimal places for accurate hash lengths,
     // since the 40 byte output and 16 byte salt are statically known.
-    $logN = sprintf('%03d', $logN);
+    $log_n = sprintf('%03d', $log_n);
     $r    = sprintf('%03d', $r);
     $p    = sprintf('%03d', $p);
-    return implode('|', array($logN, $r, $p, $salt, $hash));
+    return implode('|', array($log_n, $r, $p, $salt, $hash));
   }
 
   /**
    * Get the parameters used for a hashed password.
    */
   private function getParams($hash) {
-    list($logN, $r, $p, $salt, $raw_hash) = $this->separateHash($hash);
-    return array($logN, $r, $p);
+    list($log_n, $r, $p, $salt, $raw_hash) = $this->separateHash($hash);
+    return array($log_n, $r, $p);
   }
 
   /**
    * Split a hashed password into its internal components.
    */
   private function separateHash($hash) {
-    list($logN, $r, $p, $salt, $raw_hash) = explode('|', $hash);
-    return array(intval($logN), intval($r), intval($p), $salt, $raw_hash);
+    list($log_n, $r, $p, $salt, $raw_hash) = explode('|', $hash);
+    return array(intval($log_n), intval($r), intval($p), $salt, $raw_hash);
   }
 
 }
