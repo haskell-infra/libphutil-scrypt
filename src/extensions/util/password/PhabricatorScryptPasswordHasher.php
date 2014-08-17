@@ -28,7 +28,7 @@ final class PhabricatorScryptPasswordHasher
   }
 
   public function getInstallInstructions() {
-    return pht('Install the `scrypt` extension via PECL.');
+    return pht('Install the `scrypt` extension via PECL/PEAR.');
   }
 
   public function getStrength() {
@@ -71,7 +71,16 @@ final class PhabricatorScryptPasswordHasher
 /* -(  Internals  )---------------------------------------------------------- */
 
   private function getScryptParams() {
-    // Recommended interactive scrypt parameters.
+    // Recommended interactive scrypt parameters (log2(N), r, p)
+    //   - NOTE: /n/ is specified as log2(N)
+    //
+    // Running time is proportional to `r`, `n`, and `p`.
+    //
+    // Memory usage is approximately `128*r*n` bytes. Default settings are
+    // `128*(2^14)*8 = 16MB`.
+    //
+    // `p` can be independently tuned to influence running time since it has
+    // low influence on memory use.
     return array(14, 8, 1);
   }
 
