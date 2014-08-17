@@ -103,8 +103,8 @@ final class PhabricatorScryptPasswordHasher
     // Format numbers to three decimal places for accurate hash lengths,
     // since the 40 byte output and 16 byte salt are statically known.
     $log_n = sprintf('%03d', $log_n);
-    $r    = sprintf('%03d', $r);
-    $p    = sprintf('%03d', $p);
+    $r     = sprintf('%03d', $r);
+    $p     = sprintf('%03d', $p);
     return implode('|', array($log_n, $r, $p, $salt, $hash));
   }
 
